@@ -1,0 +1,42 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "provider": {
+        "kronk": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "Kronk (local)",
+            "options": {
+                "baseURL": "http://127.0.0.1:11435/v1"
+            },
+            "models": {
+                "Qwen3-0.6B-Q8_0/AGENT": {
+                    "name": "Qwen3-0.6B-Q8_0",
+                    "limit": {
+                        "context": 131072,
+                        "output": 65536
+                    }
+                }
+            }
+        }
+    },
+    "model": "kronk/Qwen3-0.6B-Q8_0/AGENT",
+    "formatter": true,
+    "lsp": true,
+    "compaction": {
+        "auto": false,
+        "prune": false
+    },
+    "autoupdate": false,
+    "share": "disabled",
+    "mcp": {
+        "kronk": {
+            "type": "remote",
+            "url": "http://localhost:9000/mcp"
+        }
+    },
+    "plugin": [
+        "opencode-session-handoff"
+    ],
+    "instructions": [
+        "agent.md"
+    ]
+}
