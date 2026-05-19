@@ -72,17 +72,21 @@ func (m *Middleware) ChatCompletionRequest(ctx *schemas.BifrostContext, req *sch
 	// 2. Retrieval: RAG Service
 	ragContext := m.rag.RetrieveContext(ctx, userText)
 	
-	// 3. Augmentation
+	// 3. Augmentation via System Message
 	if ragContext != "" {
-		augmentedText := fmt.Sprintf("Instructions: Use the provided context to answer the query if relevant.\n\n%s\n\nQuery: %s", ragContext, userText)
-		
-		newInput := make([]schemas.ChatMessage, len(req.Input))
-		copy(newInput, req.Input)
-		
-		newInput[lastIdx].Content = &schemas.ChatMessageContent{
-			ContentStr: schemas.Ptr(augmentedText),
+		fmt.Printf("\n[Middleware] Injecting RAG Context as System Message: %s\n", ragContext)
+
+		systemMsg := schemas.ChatMessage{
+			Role: schemas.ChatMessageRoleSystem,
+			Content: &schemas.ChatMessageContent{
+				ContentStr: schemas.Ptr(fmt.Sprintf("You are an expert assistant. Use the following specialized context to inform your answer:\n\n%s", ragContext)),
+			},
 		}
-		
+
+		newInput := make([]schemas.ChatMessage, 0, len(req.Input)+1)
+		newInput = append(newInput, systemMsg)
+		newInput = append(newInput, req.Input...)
+
 		req.Input = newInput
 	}
 
