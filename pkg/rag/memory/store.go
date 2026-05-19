@@ -1,17 +1,17 @@
-package rag
+package memory
 
 import (
 	"context"
 	"strings"
 )
 
-type Service struct {
-	// A real implementation would have database connections, vector search clients, etc.
+type Store struct {
 	knowledgeBase map[string]string
 }
 
-func NewService() *Service {
-	return &Service{
+// NewStore initializes a new in-memory RAG store with mock data.
+func NewStore() *Store {
+	return &Store{
 		knowledgeBase: map[string]string{
 			"bifrost": "Bifrost is an AI router and proxy that handles load balancing, retries, and plugin execution.",
 			"kronk":   "Kronk is an AI gateway or model server that acts as a bridge to underlying local models.",
@@ -21,8 +21,8 @@ func NewService() *Service {
 	}
 }
 
-// RetrieveContext returns specialized context based on keyword matching for the POC.
-func (s *Service) RetrieveContext(ctx context.Context, query string) string {
+// RetrieveContext returns specialized context based on keyword matching.
+func (s *Store) RetrieveContext(ctx context.Context, query string) string {
 	var contexts []string
 	lowerQuery := strings.ToLower(query)
 

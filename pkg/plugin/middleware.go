@@ -15,10 +15,10 @@ type ChatClient interface {
 type Middleware struct {
 	next      ChatClient
 	evaluator *governance.Evaluator
-	rag       *rag.Service
+	rag       rag.Retriever
 }
 
-func NewMiddleware(next ChatClient, evaluator *governance.Evaluator, rag *rag.Service) *Middleware {
+func NewMiddleware(next ChatClient, evaluator *governance.Evaluator, rag rag.Retriever) *Middleware {
 	return &Middleware{
 		next:      next,
 		evaluator: evaluator,

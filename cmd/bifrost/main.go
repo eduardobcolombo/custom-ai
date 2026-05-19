@@ -13,6 +13,10 @@ import (
 	"eduardobcolombo/custom-ai/pkg/governance"
 	"eduardobcolombo/custom-ai/pkg/plugin"
 	"eduardobcolombo/custom-ai/pkg/rag"
+	"eduardobcolombo/custom-ai/pkg/rag/memory"
+	"eduardobcolombo/custom-ai/pkg/rag/postgres"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -31,7 +35,26 @@ func main() {
 	}
 
 	// Initialize RAG Service
-	ragService := rag.NewService()
+	var ragService rag.Retriever
+
+	if os.Getenv("USE_IN_MEMORY") == "true" {
+		ragService = memory.NewStore()
+		fmt.Println("Using In-Memory RAG store")
+	} else {
+		// Initialize Postgres connection
+		dbURL := os.Getenv("DATABASE_URL")
+		if dbURL == "" {
+			dbURL = "postgres://postgres:password@localhost:5432/custom_ai?sslmode=disable"
+		}
+		pool, err := pgxpool.New(context.Background(), dbURL)
+		if err != nil {
+			panic(fmt.Sprintf("Unable to connect to database: %v", err))
+		}
+		defer pool.Close()
+		
+		ragService = postgres.NewStore(pool)
+		fmt.Println("Using Postgres RAG store")
+	}
 
 	// Wrap Bifrost client with our custom Middleware
 	var chatClient plugin.ChatClient = plugin.NewMiddleware(client, evaluator, ragService)

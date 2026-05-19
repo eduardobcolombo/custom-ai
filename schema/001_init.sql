@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS knowledge_base (
+    id SERIAL PRIMARY KEY,
+    keyword VARCHAR(255) NOT NULL UNIQUE,
+    content TEXT NOT NULL
+);
