@@ -116,3 +116,30 @@ USE_IN_MEMORY=true make run
 - `pkg/rag/`: The RAG `Retriever` interface and its memory/postgres implementations.
 - `policy/chat.rego`: Rego v1 policies for chat governance.
 - `schema/`: Initialization and seeding SQL scripts for PostgreSQL.
+
+
+## Last run logs
+```
+❯ make up
+docker-compose up -d
+WARN[0000] No services to build
+[+] up 1/1
+ ✔ Container custom-ai-postgres Running                                                                        0.0s
+go run ./cmd/bifrost/main.go
+{"level":"warn","time":"2026-05-19T16:16:39-03:00","message":"insecure_skip_verify is enabled for provider — TLS certificate verification is disabled. Not recommended for production."}
+Using Postgres RAG store
+Chat started. Type 'exit' to quit.
+
+You: what is kronk?
+
+[Middleware] Injecting RAG Context as System Message: Additional Context:
+- Kronk is an AI gateway or model server that acts as a bridge to underlying local models.
+
+Assistant:
+
+Kronk is an AI gateway or model server that acts as a bridge between underlying local models and external systems. It enables seamless integration, communication, and interaction between different AI models or systems, facilitating tasks such as language processing, data analysis, or other AI-driven applications.
+
+You: exit
+{"level":"info","time":"2026-05-19T16:16:55-03:00","message":"closing all request channels..."}
+{"level":"info","time":"2026-05-19T16:16:55-03:00","message":"all request channels closed"}
+```
