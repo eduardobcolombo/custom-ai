@@ -13,10 +13,11 @@ type Store struct {
 func NewStore() *Store {
 	return &Store{
 		knowledgeBase: map[string]string{
-			"bifrost": "Bifrost is an AI router and proxy that handles load balancing, retries, and plugin execution.",
-			"kronk":   "Kronk is an AI gateway or model server that acts as a bridge to underlying local models.",
-			"opa":     "Open Policy Agent (OPA) is an open-source, general-purpose policy engine that unifies policy enforcement.",
-			"rag":     "Retrieval-Augmented Generation (RAG) provides contextual knowledge to an LLM before generating a response.",
+			"bifrost":     "Bifrost is an AI router and proxy that handles load balancing, retries, and plugin execution.",
+			"kronk":       "Kronk is an AI gateway or model server that acts as a bridge to underlying local models.",
+			"opa":         "Open Policy Agent (OPA) is an open-source, general-purpose policy engine that unifies policy enforcement.",
+			"rag":         "Retrieval-Augmented Generation (RAG) provides contextual knowledge to an LLM before generating a response.",
+			"123-45-6789": "123-45-6789 is the social security number of the user Bill Kennedy, a partner in Ardan Labs.",
 		},
 	}
 }

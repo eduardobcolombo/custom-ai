@@ -12,3 +12,7 @@ run:
 
 # Spin up database and then run the application
 up: up-db run
+
+up-mem:
+	USE_IN_MEMORY=true go run ./cmd/bifrost/main.go
+

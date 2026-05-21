@@ -3,9 +3,10 @@ package plugin
 import (
 	"fmt"
 
-	"github.com/maximhq/bifrost/core/schemas"
 	"eduardobcolombo/custom-ai/pkg/governance"
+	"eduardobcolombo/custom-ai/pkg/pii"
 	"eduardobcolombo/custom-ai/pkg/rag"
+	"github.com/maximhq/bifrost/core/schemas"
 )
 
 type ChatClient interface {
@@ -39,6 +40,14 @@ func (m *Middleware) ChatCompletionRequest(ctx *schemas.BifrostContext, req *sch
 	}
 
 	userText := *lastMessage.Content.ContentStr
+
+	// --- PRE-EXTENSION PHASE ---
+
+	// 0. PII Detection (Log only)
+	detectedPII := pii.DetectPII(userText)
+	if len(detectedPII) > 0 {
+		fmt.Printf("\n[Middleware] Pre-Extension found PII: %v. Allowing to pass through for now.\n", detectedPII)
+	}
 
 	// 1. Governance: OPA Evaluation
 	allowed, reason, err := m.evaluator.Evaluate(ctx, userText)
@@ -90,6 +99,26 @@ func (m *Middleware) ChatCompletionRequest(ctx *schemas.BifrostContext, req *sch
 		req.Input = newInput
 	}
 
-	// 4. Pass to the next handler
-	return m.next.ChatCompletionRequest(ctx, req)
+	// 4. Send the request to Kronk/Model
+	resp, bifrostErr := m.next.ChatCompletionRequest(ctx, req)
+
+	// --- POST-EXTENSION PHASE ---
+	
+	// 5. PII Redaction
+	if resp != nil {
+		for i := range resp.Choices {
+			choice := resp.Choices[i].ChatNonStreamResponseChoice
+			if choice != nil && choice.Message != nil && choice.Message.Content != nil {
+				content := choice.Message.Content.ContentStr
+				if content != nil {
+					redactedOutput := pii.MaskPII(*content)
+					if redactedOutput != *content {
+						resp.Choices[i].ChatNonStreamResponseChoice.Message.Content.ContentStr = schemas.Ptr(redactedOutput)
+					}
+				}
+			}
+		}
+	}
+
+	return resp, bifrostErr
 }
