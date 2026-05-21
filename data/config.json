@@ -1,31 +1,13 @@
 {
-  "$schema": "https://www.getbifrost.ai/schema",
-  "client": {
-    "drop_excess_requests": false
-  },
   "providers": {
-    "kronk": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Kronk (local)",
-      "options": {
-        "baseURL": "http://127.0.0.1:11435/v1"
+    "custom-ai": {
+      "network_config": {
+        "base_url": "http://host.docker.internal:11435"
       },
-      "models": {
-        "Qwen3-0.6B-Q8_0/AGENT": {
-          "name": "Qwen3-0.6B-Q8_0",
-          "limit": {
-            "context": 131072,
-            "output": 65536
-          }
-        }
+      "custom_provider_config": {
+        "is_key_less": true,
+        "base_provider_type": "openai"
       }
-    }
-  },
-  "config_store": {
-    "enabled": true,
-    "type": "sqlite",
-    "config": {
-      "path": "./config.db"
     }
   }
 }
