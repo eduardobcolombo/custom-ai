@@ -15,27 +15,27 @@ The application intercepts the standard chat flow via a Custom HTTP Gateway. It 
 
 ```mermaid
 flowchart TD
-    User([User / OpenCode]) -->|HTTP Chat Prompt| Gateway[Custom AI Gateway (:8080)]
+    User(["User / OpenCode"]) -->|HTTP Chat Prompt| Gateway["Custom AI Gateway (:8080)"]
     
     subgraph Go Application
-        Gateway --> OPAClient[OPA HTTP Client]
-        Gateway --> RAG[RAG Interface]
-        Gateway --> PIIMask[PII Masker]
+        Gateway --> OPAClient["OPA HTTP Client"]
+        Gateway --> RAG["RAG Interface"]
+        Gateway --> PIIMask["PII Masker"]
     end
     
     subgraph Docker Containers
-        OPAClient -->|REST Query| OPA[OPA Service (:8181)]
-        Gateway -->|Augmented Prompt| Bifrost[Bifrost Gateway (:8081)]
+        OPAClient -->|REST Query| OPA["OPA Service (:8181)"]
+        Gateway -->|Augmented Prompt| Bifrost["Bifrost Gateway (:8081)"]
     end
     
-    RAG -.-> MemStore[In-Memory Store]
-    RAG -.-> PGStore[Postgres Store]
-    PGStore -->|SQL Query| PG[(PostgreSQL Docker)]
+    RAG -.-> MemStore["In-Memory Store"]
+    RAG -.-> PGStore["Postgres Store"]
+    PGStore -->|SQL Query| PG[("(PostgreSQL Docker)")]
     
-    OPA -->|Load Rules| PolicyDB[(policy/chat.rego)]
+    OPA -->|Load Rules| PolicyDB[("(policy/chat.rego)")]
     
-    Bifrost -->|Route to Model| Kronk[Local Kronk Gateway (:11435)]
-    Kronk -->|Inference| Model((Local LLM))
+    Bifrost -->|Route to Model| Kronk["Local Kronk Gateway (:11435)"]
+    Kronk -->|Inference| Model(("Local LLM"))
     
     Kronk -.-> Bifrost
     Bifrost -.-> Gateway
