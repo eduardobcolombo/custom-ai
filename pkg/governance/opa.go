@@ -1,76 +1,66 @@
 package governance
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
-
-	"github.com/open-policy-agent/opa/v1/rego"
+	"net/http"
 )
 
 type Evaluator struct {
-	query rego.PreparedEvalQuery
+	opaURL string
 }
 
-// NewEvaluator creates a new OPA evaluator loaded with the given rego policy.
-func NewEvaluator(ctx context.Context, policyPath string) (*Evaluator, error) {
-	r := rego.New(
-		rego.Query("data.chat"),
-		rego.Load([]string{policyPath}, nil),
-	)
-
-	query, err := r.PrepareForEval(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare rego query: %w", err)
+func NewEvaluator(ctx context.Context, opaURL string) (*Evaluator, error) {
+	if opaURL == "" {
+		return nil, fmt.Errorf("opaURL cannot be empty")
 	}
-
-	return &Evaluator{query: query}, nil
+	return &Evaluator{opaURL: opaURL}, nil
 }
 
-// Evaluate checks if the message is allowed and returns false with a reason if denied.
-func (e *Evaluator) Evaluate(ctx context.Context, message string) (bool, string, error) {
-	input := map[string]any{
-		"message": message,
+type OPARequest struct {
+	Input map[string]interface{} `json:"input"`
+}
+
+type OPAResponse struct {
+	Result struct {
+		Allow bool     `json:"allow"`
+		Deny  []string `json:"deny"`
+	} `json:"result"`
+}
+
+func (e *Evaluator) Evaluate(ctx context.Context, prompt string) (bool, string, error) {
+	reqBody := OPARequest{
+		Input: map[string]interface{}{
+			"message": prompt,
+		},
 	}
 
-	results, err := e.query.Eval(ctx, rego.EvalInput(input))
+	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return false, "", fmt.Errorf("failed to evaluate policy: %w", err)
+		return false, "", err
 	}
 
-	if len(results) == 0 {
-		return false, "no results from policy evaluation", nil
+	resp, err := http.Post(e.opaURL, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return false, "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, "", fmt.Errorf("OPA returned status: %d", resp.StatusCode)
 	}
 
-	// The policy package is 'chat', so results[0].Expressions[0].Value is a map containing 'allow' and 'deny'
-	resultMap, ok := results[0].Expressions[0].Value.(map[string]any)
-	if !ok {
-		return false, "unexpected policy evaluation result format", nil
+	var opaResp OPAResponse
+	if err := json.NewDecoder(resp.Body).Decode(&opaResp); err != nil {
+		return false, "", err
 	}
 
-	allow, ok := resultMap["allow"].(bool)
-	if !ok {
-		return false, "allow rule missing or not a boolean", nil
+	reason := ""
+	if len(opaResp.Result.Deny) > 0 {
+		reason = opaResp.Result.Deny[0]
 	}
 
-	if allow {
-		return true, "", nil
-	}
-
-	// Get deny reasons if any
-	denyReasons, ok := resultMap["deny"].([]any)
-	var reasons []string
-	if ok {
-		for _, r := range denyReasons {
-			if strReason, ok := r.(string); ok {
-				reasons = append(reasons, strReason)
-			}
-		}
-	}
-
-	if len(reasons) > 0 {
-		return false, strings.Join(reasons, ", "), nil
-	}
-
-	return false, "policy denied the request without providing a reason", nil
+	return opaResp.Result.Allow, reason, nil
 }

@@ -1,19 +1,25 @@
 {
 	"$schema": "https://charm.land/crush.json",
 	"providers": {
-		"kronk": {
-			"name": "Kronk (local)",
+		"custom-ai": {
+			"name": "Custom AI (local)",
 			"type": "openai-compat",
-			"base_url": "http://localhost:11435/v1",
+			"base_url": "http://localhost:8080/v1",
 			"models": [
 				{
 					"name": "Qwen3-0.6B-Q8_0",
 					"id": "Qwen3-0.6B-Q8_0/AGENT",
 					"context_window": 131072,
 					"default_max_tokens": 65536
+				},
+				{
+					"name": "Qwen3-8B-UD-Q8_K_XL",
+					"id": "Qwen3-8B-UD-Q8_K_XL/AGENT",
+					"context_window": 131072,
+					"default_max_tokens": 65536
 				}
 			]
 		}
 	},
-	"default_provider": "kronk/Qwen3-0.6B-Q8_0/AGENT"
+	"default_provider": "custom-ai/Qwen3-0.6B-Q8_0/AGENT"
 }

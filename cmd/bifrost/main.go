@@ -1,156 +1,84 @@
 package main
 
 import (
-	"bufio"
 	"context"
+	"errors"
 	"fmt"
-	"os"
-	"strings"
+	"log"
+	"net/http"
 
-	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/schemas"
-
+	"eduardobcolombo/custom-ai/cmd/bifrost/handlers"
 	"eduardobcolombo/custom-ai/pkg/governance"
-	"eduardobcolombo/custom-ai/pkg/plugin"
 	"eduardobcolombo/custom-ai/pkg/rag"
 	"eduardobcolombo/custom-ai/pkg/rag/memory"
 	"eduardobcolombo/custom-ai/pkg/rag/postgres"
 
+	"github.com/ardanlabs/conf/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
-	client, initErr := bifrost.Init(context.Background(), schemas.BifrostConfig{
-		Account: NewKronkAccount(),
-	})
-	if initErr != nil {
-		panic(initErr)
+	cfg := struct {
+		conf.Version
+		Web struct {
+			APIHost string `conf:"default:0.0.0.0:8080"`
+		}
+		Gateways struct {
+			OPAURL     string `conf:"default:http://localhost:8181/v1/data/chat"`
+			BifrostURL string `conf:"default:http://localhost:8081/v1/chat/completions"`
+		}
+		RAG struct {
+			Mode  string `conf:"default:memory"` // "memory" or "postgres"
+			DBURL string `conf:"default:postgres://postgres:password@localhost:5432/custom_ai?sslmode=disable,mask"`
+		}
+	}{
+		Version: conf.Version{
+			Build: "1.0.0",
+			Desc:  "Custom AI Gateway",
+		},
 	}
-	defer client.Shutdown()
+
+	const prefix = "BIFROST"
+	help, err := conf.Parse(prefix, &cfg)
+	if err != nil {
+		if errors.Is(err, conf.ErrHelpWanted) {
+			fmt.Println(help)
+			return
+		}
+		log.Fatalf("parsing config: %v", err)
+	}
+
+	out, err := conf.String(&cfg)
+	if err != nil {
+		log.Fatalf("generating config for output: %v", err)
+	}
+	fmt.Printf("startup config:\n%s\n", out)
 
 	// Initialize Governance (OPA)
-	evaluator, err := governance.NewEvaluator(context.Background(), "policy/chat.rego")
+	evaluator, err := governance.NewEvaluator(context.Background(), cfg.Gateways.OPAURL)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to initialize OPA: %v", err))
+		log.Fatalf("Failed to initialize OPA evaluator: %v", err)
 	}
 
 	// Initialize RAG Service
 	var ragService rag.Retriever
-
-	if os.Getenv("USE_IN_MEMORY") == "true" {
+	if cfg.RAG.Mode == "memory" {
 		ragService = memory.NewStore()
 		fmt.Println("Using In-Memory RAG store")
 	} else {
-		// Initialize Postgres connection
-		dbURL := os.Getenv("DATABASE_URL")
-		if dbURL == "" {
-			dbURL = "postgres://postgres:password@localhost:5432/custom_ai?sslmode=disable"
-		}
-		pool, err := pgxpool.New(context.Background(), dbURL)
+		pool, err := pgxpool.New(context.Background(), cfg.RAG.DBURL)
 		if err != nil {
-			panic(fmt.Sprintf("Unable to connect to database: %v", err))
+			log.Fatalf("Unable to connect to database: %v", err)
 		}
 		defer pool.Close()
-		
+
 		ragService = postgres.NewStore(pool)
 		fmt.Println("Using Postgres RAG store")
 	}
 
-	// Wrap Bifrost client with our custom Middleware
-	var chatClient plugin.ChatClient = plugin.NewMiddleware(client, evaluator, ragService)
+	chatHandler := handlers.NewChatHandler(evaluator, ragService, cfg.Gateways.BifrostURL)
+	http.HandleFunc("/v1/chat/completions", chatHandler.HandleChatCompletions)
 
-	messages := []schemas.ChatMessage{}
-
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println("Chat started. Type 'exit' to quit.")
-	for {
-		fmt.Print("\nYou: ")
-		if !scanner.Scan() {
-			break
-		}
-		input := strings.TrimSpace(scanner.Text())
-		if input == "" {
-			continue
-		}
-		if input == "exit" {
-			break
-		}
-
-		messages = append(messages, schemas.ChatMessage{
-			Role: schemas.ChatMessageRoleUser,
-			Content: &schemas.ChatMessageContent{
-				ContentStr: schemas.Ptr(input),
-			},
-		})
-
-		response, err := chatClient.ChatCompletionRequest(schemas.NewBifrostContext(context.Background(), schemas.NoDeadline), &schemas.BifrostChatRequest{
-			Provider: schemas.OpenAI,
-			Model:    "Qwen3-0.6B-Q8_0",
-			Input:    messages,
-		})
-
-		if err != nil {
-			fmt.Println("Error:", err)
-			continue
-		}
-
-		reply := *response.Choices[0].Message.Content.ContentStr
-		fmt.Println("\nAssistant:", reply)
-
-		messages = append(messages, schemas.ChatMessage{
-			Role: schemas.ChatMessageRoleAssistant,
-			Content: &schemas.ChatMessageContent{
-				ContentStr: schemas.Ptr(reply),
-			},
-		})
-	}
-}
-
-type KronkAccount struct {
-	cachedOpenAIKeys []schemas.Key // Pre-cached keys
-}
-
-func (a *KronkAccount) GetConfiguredProviders() ([]schemas.ModelProvider, error) {
-	return []schemas.ModelProvider{schemas.OpenAI}, nil
-}
-
-func (a *KronkAccount) GetKeysForProvider(ctx context.Context, provider schemas.ModelProvider) ([]schemas.Key, error) {
-
-	switch provider {
-	case schemas.OpenAI:
-		return a.cachedOpenAIKeys, nil // Pre-cached keys
-	}
-
-	return nil, fmt.Errorf("provider %s not supported", provider)
-}
-
-func (a *KronkAccount) GetConfigForProvider(provider schemas.ModelProvider) (*schemas.ProviderConfig, error) {
-	if provider == schemas.OpenAI {
-
-		return &schemas.ProviderConfig{
-			NetworkConfig: schemas.NetworkConfig{
-				BaseURL:            "http://127.0.0.1:11435", // Kronk's local API endpoint
-				InsecureSkipVerify: true,
-			},
-			ConcurrencyAndBufferSize: schemas.DefaultConcurrencyAndBufferSize,
-			// ProxyConfig: &schemas.ProxyConfig{
-			// 	Type: schemas.HTTPProxy,
-			// 	URL:  schemas.NewEnvVar("http://127.0.0.1:8080"), // Proxy URL (if needed)
-			// },
-			CustomProviderConfig: &schemas.CustomProviderConfig{
-				IsKeyLess:        true,
-				BaseProviderType: schemas.OpenAI, // Kronk uses OpenAI-compatible API
-			},
-		}, nil
-	}
-	return nil, fmt.Errorf("provider %s not supported", provider)
-}
-
-func NewKronkAccount() *KronkAccount {
-	return &KronkAccount{
-		cachedOpenAIKeys: []schemas.Key{{
-			Models: schemas.WhiteList{"Qwen3-0.6B-Q8_0"}, // Keep Models ["*"] to use any model
-			Weight: 1.0,
-		}},
-	}
+	fmt.Printf("Custom AI Gateway running on host %s...\n", cfg.Web.APIHost)
+	log.Fatal(http.ListenAndServe(cfg.Web.APIHost, nil))
 }

@@ -1,0 +1,6 @@
+data/config.db
+data/config.db-shm
+data/config.db-wal
+data/logs.db
+data/logs.db-shm
+data/logs.db-wal

@@ -7,7 +7,7 @@ import (
 var (
 	// Regex for standard SSN format: 123-45-6789
 	ssnRegex = regexp.MustCompile(`\b\d{3}-\d{2}-\d{4}\b`)
-	
+
 	// Regex for generic 6+ digits string as requested "like 123456"
 	genericSSNRegex = regexp.MustCompile(`\b\d{6,9}\b`)
 
@@ -16,7 +16,7 @@ var (
 )
 
 const (
-	MaskedVisualToken  = "*****"
+	MaskedVisualToken = "************"
 )
 
 // DetectPII returns a slice of all sensitive information found in the input.
@@ -33,10 +33,10 @@ func DetectPII(input string) []string {
 func MaskPII(input string) string {
 	// Mask Emails
 	input = emailRegex.ReplaceAllString(input, MaskedVisualToken)
-	
+
 	// Mask strict SSN format
 	input = ssnRegex.ReplaceAllString(input, MaskedVisualToken)
-	
+
 	// Mask generic numbers representing SSN
 	input = genericSSNRegex.ReplaceAllString(input, MaskedVisualToken)
 
