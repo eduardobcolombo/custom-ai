@@ -5,17 +5,17 @@
             "npm": "@ai-sdk/openai-compatible",
             "name": "Custom AI (local)",
             "options": {
-                "baseURL": "http://localhost:8080/v1"
+                "baseURL": "http://localhost:8081/v1"
             },
             "models": {
-                "Qwen3-0.6B-Q8_0": {
+                "custom-ai/Qwen3-0.6B-Q8_0": {
                     "name": "Qwen3-0.6B-Q8_0",
                     "limit": {
                         "context": 131072,
                         "output": 65536
                     }
                 },
-                "Qwen3-8B-UD-Q8_K_XL": {
+                "custom-ai/Qwen3-8B-UD-Q8_K_XL": {
                     "name": "Qwen3-8B-UD-Q8_K_XL",
                     "limit": {
                         "context": 131072,
