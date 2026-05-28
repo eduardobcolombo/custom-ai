@@ -9,5 +9,16 @@
         "base_provider_type": "openai"
       }
     }
-  }
+  },
+  "plugins": [
+    {
+      "enabled": true,
+      "name": "pii-interceptor",
+      "path": "/app/plugins/pii-interceptor.so",
+      "version": 1,
+      "config": {
+        "opa_url": "http://opa:8181/v1/data/chat"
+      }
+    }
+  ]
 }
